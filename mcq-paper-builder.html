@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MCQ Paper Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+Sinhala:wght@400;600&family=Noto+Sans+Tamil:wght@400;600&display=swap">
+<style>
+/* Layout: editor rail on the left, real A4 pages on the right that match the PDF and print exactly */
+:root{
+  --ink:#1d2330; --muted:#5f6878; --line:#d9dde5; --ground:#eef0f4; --panel:#ffffff;
+  --accent:#1f5f8b; --accent-ink:#ffffff; --danger:#b23a3a; --ok:#2e7d4f;
+  --paper:#ffffff; --paper-ink:#111111;
+  --f-paper:"Source Serif 4","Noto Sans Sinhala","Noto Sans Tamil",Georgia,serif;
+  --f-ui:"IBM Plex Sans","Noto Sans Sinhala","Noto Sans Tamil",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ink:#e6e9ef; --muted:#a3abb9; --line:#343b48; --ground:#14181f; --panel:#1c212a;
+  --accent:#6aaee0; --accent-ink:#0d1520; --danger:#e07a7a; --ok:#6fcf97; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ink:#e6e9ef; --muted:#a3abb9; --line:#343b48; --ground:#14181f; --panel:#1c212a;
+  --accent:#6aaee0; --accent-ink:#0d1520; --danger:#e07a7a; --ok:#6fcf97; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:14px/1.45 var(--f-ui)}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:minmax(320px,400px) 1fr;gap:20px;padding:20px 16px;align-items:start;max-width:1500px;margin:0 auto}
+@media (max-width:900px){.app{grid-template-columns:1fr}}
+
+/* ---------- editor ---------- */
+.rail{display:flex;flex-direction:column;gap:14px;min-width:0;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;padding-right:4px}
+@media (max-width:900px){.rail{position:static;max-height:none}}
+.brand h1{font:600 18px/1.2 var(--f-ui);margin:0}
+.brand p{margin:2px 0 10px;color:var(--muted);font-size:12.5px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.box h2{margin:0;font:600 11.5px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);min-width:0}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--ground);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--ink)}
+textarea{resize:vertical;min-height:58px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:7px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.6;cursor:progress}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.sm{padding:4px 9px;font-size:12.5px}
+.btn.danger{color:var(--danger)}
+.dl{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.incl{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:10px;padding:9px 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.incl span{font-size:12.5px;color:var(--muted);width:100%}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+
+.qcard{border:1px solid var(--line);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--ground)}
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.qhead b{font-size:13px}
+.opt{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center}
+.opt .letter{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:12px;font-weight:600;cursor:pointer;background:var(--panel)}
+.opt .letter.correct{background:var(--ok);border-color:var(--ok);color:#fff}
+.x{border:0;background:none;cursor:pointer;color:var(--muted);font-size:16px;padding:2px 6px}
+.x:hover{color:var(--danger)}
+
+/* ---------- paper pages ---------- */
+.stage{min-width:0;overflow-x:auto;padding-bottom:20px;display:flex;flex-direction:column;align-items:center;gap:20px}
+.sheet{flex:none;width:210mm;height:297mm;background:var(--paper);color:var(--paper-ink);box-shadow:0 2px 14px rgba(0,0,0,.15);position:relative;padding:14mm 15mm 0;font-family:var(--f-paper);font-size:var(--qsize,11.5pt);line-height:1.4;overflow:hidden;display:flex;flex-direction:column}
+.capturing .sheet{box-shadow:none}
+.wm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}
+.wm span{transform:rotate(var(--wmrot,-35deg));font:700 var(--wmsize,64pt)/1 var(--f-paper);color:#000;opacity:var(--wmop,.07);white-space:nowrap;letter-spacing:.04em;text-transform:uppercase}
+.content{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
+.qs{flex:1;min-height:0;overflow:hidden}
+.qs.two{column-count:2;column-gap:9mm;column-rule:1px solid #bbb;column-fill:auto}
+.foot{position:relative;z-index:1;flex:none;height:13mm;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border-top:1px solid #999;padding-top:4px;font:9pt/1.2 var(--f-paper);color:#333}
+.foot span:nth-child(2){text-align:center;flex:1}
+
+.phead{text-align:center;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:0}
+.phead .school{font-size:16pt;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.phead .exam{font-size:13pt;font-weight:600;margin-top:2px}
+.phead .subj{font-size:12pt;margin-top:2px}
+.meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 18px;font-size:10.5pt;padding:4px 0 6px;border-bottom:1px solid #111}
+.meta b{font-weight:600}
+.student{display:grid;grid-template-columns:2fr 1fr;gap:6px 24px;font-size:10.5pt;margin:10px 0 0}
+.student div{display:flex;gap:6px;align-items:flex-end}
+.student i{flex:1;border-bottom:1px dotted #333;height:1.1em;font-style:normal}
+.instr{border:1px solid #111;padding:6px 10px;font-size:10pt;margin-top:10px}
+.instr strong{display:block;margin-bottom:2px}
+.instr ul{margin:0;padding-left:18px}
+.sec{font-weight:700;font-size:11.5pt;margin:12px 0 6px;text-transform:uppercase;letter-spacing:.03em}
+.cont{font-size:9pt;color:#444;text-align:right;margin-bottom:6px;font-style:italic}
+
+.q{display:grid;grid-template-columns:2.2em 1fr auto;gap:0 4px;padding-bottom:9px;break-inside:avoid}
+.q .n{font-weight:600}
+.q .mk{font-size:9pt;color:#444;white-space:nowrap}
+.q .opts{grid-column:2/4;display:grid;gap:2px 14px;margin-top:3px}
+.q .opts.c1{grid-template-columns:1fr}
+.q .opts.c2{grid-template-columns:1fr 1fr}
+.q .opts.c4{grid-template-columns:repeat(4,1fr)}
+.q .o{display:flex;gap:6px;min-width:0}
+.q .o .l{min-width:1.6em}
+.q .o.key .l{font-weight:700;text-decoration:underline}
+.q .stem{white-space:pre-wrap;min-width:0}
+.end{text-align:center;font-weight:600;padding-top:8px;letter-spacing:.2em;font-size:10pt;break-inside:avoid}
+
+.keytable{width:100%;border-collapse:collapse;font-size:10.5pt;margin-top:8px}
+.keytable td{border:1px solid #333;padding:4px 6px;text-align:center}
+.keytable td:nth-child(odd){font-weight:600;background:#f2f2f2}
+.bubbles{display:grid;grid-template-columns:repeat(4,1fr);gap:5px 8mm;margin-top:10px;font-size:10.5pt}
+.bubbles div{display:flex;gap:5px;align-items:center}
+.bubbles b{width:2em;text-align:right}
+.bubbles span{width:5.2mm;height:5.2mm;border:1px solid #111;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:7pt}
+
+/* ---------- print: each sheet is already a full A4 page, so no page margin is left for browser headers ---------- */
+@page{size:A4;margin:0}
+@media print{
+  body{background:#fff}
+  .rail,.toast{display:none!important}
+  .app{display:block;padding:0;max-width:none}
+  .stage{display:block;overflow:visible;padding:0}
+  .sheet{box-shadow:none;margin:0;break-after:page;page-break-after:always}
+  .sheet:last-child{break-after:auto;page-break-after:auto}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail" aria-label="Paper settings">
+    <div class="brand">
+      <h1>MCQ Paper Builder</h1>
+      <p>Edit on the left. The pages on the right are exactly what downloads.</p>
+      <div class="dl">
+        <button class="btn primary" id="pdfBtn">Download PDF</button>
+        <button class="btn primary" id="docxBtn">Download Word</button>
+        <button class="btn" id="printBtn" title="Print">Print</button>
+      </div>
+      <div class="incl">
+        <span>Include in download:</span>
+        <label class="check"><input type="checkbox" id="answerSheet"> Answer sheet (bubbles)</label>
+        <label class="check"><input type="checkbox" id="answerKey"> Answer key</label>
+      </div>
+    </div>
+
+    <section class="box">
+      <h2>Header</h2>
+      <label class="f">School / institute<input type="text" id="school"></label>
+      <label class="f">Exam title<input type="text" id="exam"></label>
+      <div class="grid2">
+        <label class="f">Subject<input type="text" id="subject"></label>
+        <label class="f">Grade / class<input type="text" id="grade"></label>
+        <label class="f">Teacher name<input type="text" id="teacher"></label>
+        <label class="f">Date<input type="text" id="date"></label>
+        <label class="f">Duration<input type="text" id="duration"></label>
+        <label class="f">Paper code<input type="text" id="code"></label>
+      </div>
+      <label class="f">Section heading<input type="text" id="section"></label>
+      <label class="f">Instructions (one per line)<textarea id="instructions" rows="4"></textarea></label>
+      <label class="check"><input type="checkbox" id="showStudent"> Student name / index lines</label>
+    </section>
+
+    <section class="box">
+      <h2>Watermark &amp; footer</h2>
+      <label class="check"><input type="checkbox" id="wmOn"> Show watermark</label>
+      <label class="f">Watermark text<input type="text" id="wmText" placeholder="Uses teacher name if empty"></label>
+      <div class="grid2">
+        <label class="f">Darkness <input type="range" id="wmOp" min="3" max="25"></label>
+        <label class="f">Angle <input type="range" id="wmRot" min="-60" max="0"></label>
+      </div>
+      <label class="f">Size <input type="range" id="wmSize" min="28" max="110"></label>
+      <div class="grid2">
+        <label class="f">Footer left<input type="text" id="footL" placeholder="Uses teacher name if empty"></label>
+        <label class="f">Footer centre<input type="text" id="footR"></label>
+      </div>
+      <p class="hint">Page numbers are added on the right of every footer.</p>
+    </section>
+
+    <section class="box">
+      <h2>Layout</h2>
+      <div class="grid2">
+        <label class="f">Options per row
+          <select id="optCols"><option value="auto">Auto</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></label>
+        <label class="f">Text size
+          <select id="qsize"><option value="10.5pt">Small</option><option value="11.5pt">Normal</option><option value="12.5pt">Large</option></select></label>
+        <label class="f">Option labels
+          <select id="labels"><option value="A">A B C D</option><option value="a">(a) (b) (c)</option><option value="1">(1) (2) (3)</option><option value="i">(i) (ii) (iii)</option></select></label>
+        <label class="f">Page columns
+          <select id="pageCols"><option value="1">1 column</option><option value="2">2 columns</option></select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="showMarks"> Show marks per question</label>
+      <label class="check"><input type="checkbox" id="markKey"> Mark correct answers on paper (teacher copy)</label>
+    </section>
+
+    <section class="box">
+      <div class="row" style="justify-content:space-between"><h2>Questions <span id="qcount"></span></h2>
+        <div class="row"><button class="btn sm" id="shuffle">Shuffle</button><button class="btn sm primary" id="addQ">+ Add</button></div></div>
+      <p class="hint">Click a letter circle to set the correct answer.</p>
+      <div id="qlist" class="row" style="flex-direction:column;align-items:stretch"></div>
+      <button class="btn" id="addQ2">+ Add question</button>
+    </section>
+
+    <section class="box">
+      <h2>Bulk paste</h2>
+      <p class="hint">Paste questions like:<br>1. Question text<br>A) option &nbsp;B) option &nbsp;C) option &nbsp;D) option<br>Answer: B</p>
+      <textarea id="bulk" rows="5" placeholder="Paste here…"></textarea>
+      <div class="row"><button class="btn sm" id="bulkAdd">Add pasted questions</button></div>
+    </section>
+
+    <section class="box">
+      <h2>Save</h2>
+      <p class="hint">Your work saves in this browser automatically.</p>
+      <div class="row">
+        <button class="btn sm" id="exportBtn">Export file</button>
+        <label class="btn sm" for="importFile">Import file</label><input type="file" id="importFile" accept=".json" hidden>
+        <button class="btn sm danger" id="resetBtn">Reset</button>
+      </div>
+      <div class="row" id="resetConfirm" hidden><span class="hint">Clear everything?</span><button class="btn sm danger" id="resetYes">Yes, reset</button><button class="btn sm" id="resetNo">Cancel</button></div>
+    </section>
+  </aside>
+
+  <main class="stage" id="stage"></main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const LIBS={
+  html2canvas:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  jspdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  docx:'https://unpkg.com/docx@8.5.0/build/index.umd.js'
+};
+const KEY='mcq-paper-builder-v1';
+const DEFAULT={
+  school:'Your School Name',exam:'Second Term Test – 2026',subject:'Information & Communication Technology',
+  grade:'Grade 11',teacher:'Teacher Name',date:'October 2026',duration:'1 hour',code:'ICT/11/II',
+  section:'Part I – Multiple Choice Questions',
+  instructions:'Answer all questions.\nUnderline or circle the correct answer.\nEach question carries 1 mark.',
+  showStudent:true,wmOn:true,wmText:'',wmOp:7,wmRot:-35,wmSize:64,footL:'',footR:'',
+  optCols:'auto',qsize:'11.5pt',labels:'A',pageCols:'1',showMarks:false,answerSheet:false,answerKey:true,markKey:false,
+  questions:[
+    {q:'What does CPU stand for?',o:['Central Processing Unit','Computer Personal Unit','Central Program Utility','Control Processing Unit'],a:0,m:1},
+    {q:'Which of these is an input device?',o:['Monitor','Printer','Keyboard','Speaker'],a:2,m:1},
+    {q:'The binary number 1010 equals which decimal number?',o:['8','10','12','5'],a:1,m:1},
+    {q:'Which memory loses its data when power is switched off?',o:['ROM','Hard disk','Flash memory','RAM'],a:3,m:1},
+    {q:'Which protocol is used to load web pages securely?',o:['FTP','HTTPS','SMTP','POP3'],a:1,m:1},
+    {q:'In a spreadsheet, which formula adds the values in cells A1 to A5?',o:['=ADD(A1:A5)','=SUM(A1:A5)','=TOTAL(A1+A5)','=A1:A5'],a:1,m:1}
+  ]
+};
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!Array.isArray(S.questions)) S=structuredClone(DEFAULT);
+S={...structuredClone(DEFAULT),...S};
+if(S.footR==='Turn over') S.footR='';
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const roman=['i','ii','iii','iv','v','vi'];
+const lab=i=>({A:String.fromCharCode(65+i)+'.',a:'('+String.fromCharCode(97+i)+')','1':'('+(i+1)+')',i:'('+roman[i]+')'}[S.labels]);
+const bare=i=>lab(i).replace(/[().]/g,'');
+const fields=['school','exam','subject','grade','teacher','date','duration','code','section','instructions','wmText','footL','footR','optCols','qsize','labels','pageCols'];
+const checks=['showStudent','wmOn','showMarks','answerSheet','answerKey','markKey'];
+const ranges=['wmOp','wmRot','wmSize'];
+const wmTextOf=()=>(S.wmText.trim()||S.teacher).toUpperCase();
+const footLeft=()=>(S.footL.trim()||S.teacher)+(S.subject?' · '+S.subject:'');
+const totalMarks=()=>S.questions.reduce((s,q)=>s+(+q.m||0),0);
+const instrList=()=>S.instructions.split('\n').map(s=>s.trim()).filter(Boolean);
+const fileBase=()=>[S.subject,S.grade,S.exam].filter(Boolean).join(' ').replace(/[^\w\- ]/g,'').trim().replace(/\s+/g,'-')||'mcq-paper';
+
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function toast(t,ms=1800){const el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),ms)}
+
+function bindSettings(){
+  fields.forEach(k=>{const el=$(k);el.value=S[k];el.addEventListener('input',()=>{S[k]=el.value;update(false)})});
+  checks.forEach(k=>{const el=$(k);el.checked=!!S[k];el.addEventListener('change',()=>{S[k]=el.checked;update(false)})});
+  ranges.forEach(k=>{const el=$(k);el.value=S[k];el.addEventListener('input',()=>{S[k]=+el.value;update(false)})});
+}
+function refreshInputs(){fields.forEach(k=>$(k).value=S[k]);checks.forEach(k=>$(k).checked=!!S[k]);ranges.forEach(k=>$(k).value=S[k])}
+
+function colsFor(q){
+  if(S.optCols!=='auto') return +S.optCols;
+  const max=Math.max(...q.o.map(x=>String(x).length),1);
+  if(S.pageCols==='2') return max<12?2:1;
+  return max<=14&&q.o.length<=4?4:max<=34?2:1;
+}
+
+/* ---------- paginated paper ---------- */
+function el(html){const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild}
+function headHTML(sub){
+  return `<div><div class="phead">
+    ${S.school?`<div class="school">${esc(S.school)}</div>`:''}
+    ${S.exam?`<div class="exam">${esc(S.exam)}</div>`:''}
+    <div class="subj">${esc(S.subject)}${sub?' — '+esc(sub):''}</div></div>
+  <div class="meta">
+    ${S.grade?`<span><b>Class:</b> ${esc(S.grade)}</span>`:''}
+    ${S.teacher?`<span><b>Teacher:</b> ${esc(S.teacher)}</span>`:''}
+    ${S.duration?`<span><b>Time:</b> ${esc(S.duration)}</span>`:''}
+    <span><b>Marks:</b> ${totalMarks()}</span>
+    ${S.date?`<span><b>Date:</b> ${esc(S.date)}</span>`:''}
+    ${S.code?`<span><b>Code:</b> ${esc(S.code)}</span>`:''}
+  </div></div>`;
+}
+const studentHTML=()=>S.showStudent?`<div class="student"><div>Name:<i></i></div><div>Index No:<i></i></div></div>`:'';
+function newSheet(stage,inner){
+  const vars=`--wmop:${S.wmOp/100};--wmrot:${S.wmRot}deg;--wmsize:${S.wmSize}pt`;
+  const s=el(`<div class="sheet" style="${vars}">${S.wmOn?`<div class="wm" aria-hidden="true"><span>${esc(wmTextOf())}</span></div>`:''}
+    <div class="content">${inner}</div>
+    <div class="foot"><span>${esc(footLeft())}</span><span>${esc(S.footR)}</span><span class="pg"></span></div></div>`);
+  stage.appendChild(s);return s;
+}
+function qHTML(q,i){
+  return `<div class="q"><span class="n">${i+1}.</span><span class="stem">${esc(q.q)}</span>${S.showMarks?`<span class="mk">[${q.m}]</span>`:'<span></span>'}
+    <div class="opts c${colsFor(q)}">${q.o.map((o,j)=>`<div class="o${S.markKey&&j===q.a?' key':''}"><span class="l">${lab(j)}</span><span>${esc(o)}</span></div>`).join('')}</div></div>`;
+}
+function overflows(box){return box.scrollHeight>box.clientHeight+1||box.scrollWidth>box.clientWidth+1}
+function questionPage(stage,first){
+  const ins=instrList();
+  const top=first?`${headHTML()}${studentHTML()}
+    ${ins.length?`<div class="instr"><strong>Instructions</strong><ul>${ins.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+    ${S.section?`<div class="sec">${esc(S.section)}</div>`:''}`:`<div class="cont">${esc(S.subject)}${S.grade?' · '+esc(S.grade):''} — continued</div>`;
+  const s=newSheet(stage,top+`<div class="qs${S.pageCols==='2'?' two':''}"></div>`);
+  const box=s.querySelector('.qs');box.style.height=box.clientHeight+'px';box.style.flex='none';
+  return box;
+}
+function renderPaper(){
+  const stage=$('stage');stage.innerHTML='';
+  stage.style.setProperty('--qsize',S.qsize);
+  let box=questionPage(stage,true);
+  const items=S.questions.map(qHTML).concat(['<div class="end">*** END OF PAPER ***</div>']);
+  items.forEach(h=>{
+    const node=el(h);box.appendChild(node);
+    if(overflows(box)&&box.children.length>1){node.remove();box=questionPage(stage,false);box.appendChild(node)}
+  });
+  if(S.answerSheet){
+    newSheet(stage,`${headHTML('Answer Sheet')}${studentHTML()}
+      <p style="font-size:10pt;margin:10px 0 0">Shade the circle for the correct answer.</p>
+      <div class="bubbles">${S.questions.map((q,i)=>`<div><b>${i+1}.</b>${q.o.map((_,j)=>`<span>${bare(j)}</span>`).join('')}</div>`).join('')}</div>`);
+  }
+  if(S.answerKey){
+    const rows=[];for(let i=0;i<S.questions.length;i+=5)
+      rows.push('<tr>'+S.questions.slice(i,i+5).map((q,k)=>`<td>${i+k+1}</td><td>${bare(q.a)}</td>`).join('')+'</tr>');
+    newSheet(stage,`${headHTML('Answer Key')}
+      <p style="font-size:10pt;margin:10px 0 0">For teacher use only. Total marks: ${totalMarks()}</p>
+      <table class="keytable">${rows.join('')}</table>`);
+  }
+  const sheets=[...stage.querySelectorAll('.sheet')];
+  sheets.forEach((s,i)=>s.querySelector('.pg').textContent=`Page ${i+1} of ${sheets.length}`);
+}
+
+/* ---------- question editor ---------- */
+function renderList(){
+  const L=$('qlist');L.innerHTML='';
+  $('qcount').textContent='('+S.questions.length+')';
+  S.questions.forEach((q,i)=>{
+    const c=document.createElement('div');c.className='qcard';
+    c.innerHTML=`<div class="qhead"><b>Question ${i+1}</b><div class="row">
+      <label class="hint" for="m${i}">Marks</label><input type="number" id="m${i}" min="0" step="0.5" value="${q.m}" style="width:58px;padding:3px 6px">
+      <button class="x" title="Move up" data-up>↑</button><button class="x" title="Move down" data-down>↓</button>
+      <button class="x" title="Delete question" data-del>✕</button></div></div>
+      <textarea id="q${i}" rows="2" aria-label="Question ${i+1} text">${esc(q.q)}</textarea>
+      ${q.o.map((o,j)=>`<div class="opt"><button class="letter ${j===q.a?'correct':''}" data-a="${j}" title="Mark as correct">${String.fromCharCode(65+j)}</button>
+        <input type="text" id="o${i}_${j}" value="${esc(o)}" aria-label="Question ${i+1} option ${j+1}">
+        ${q.o.length>2?`<button class="x" data-rm="${j}" title="Remove option">✕</button>`:'<span></span>'}</div>`).join('')}
+      ${q.o.length<6?'<button class="btn sm" data-addopt style="align-self:flex-start">+ Option</button>':''}`;
+    c.querySelector(`#q${i}`).addEventListener('input',e=>{q.q=e.target.value;update(false)});
+    c.querySelector(`#m${i}`).addEventListener('input',e=>{q.m=+e.target.value||0;update(false)});
+    q.o.forEach((_,j)=>c.querySelector(`#o${i}_${j}`).addEventListener('input',e=>{q.o[j]=e.target.value;update(false)}));
+    c.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{q.a=+b.dataset.a;update()});
+    c.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const j=+b.dataset.rm;q.o.splice(j,1);if(q.a>=q.o.length)q.a=0;else if(q.a>j)q.a--;update()});
+    const ao=c.querySelector('[data-addopt]');if(ao)ao.onclick=()=>{q.o.push('');update()};
+    c.querySelector('[data-del]').onclick=()=>{S.questions.splice(i,1);update();toast('Question deleted')};
+    c.querySelector('[data-up]').onclick=()=>{if(i>0){[S.questions[i-1],S.questions[i]]=[S.questions[i],S.questions[i-1]];update()}};
+    c.querySelector('[data-down]').onclick=()=>{if(i<S.questions.length-1){[S.questions[i+1],S.questions[i]]=[S.questions[i],S.questions[i+1]];update()}};
+    L.appendChild(c);
+  });
+}
+let rt;
+function update(relist=true){
+  if(relist)renderList();
+  save();clearTimeout(rt);
+  if(relist)renderPaper();else rt=setTimeout(renderPaper,180);
+}
+
+function addQ(){S.questions.push({q:'',o:['','','',''],a:0,m:1});update();$('q'+(S.questions.length-1)).focus()}
+$('addQ').onclick=addQ;$('addQ2').onclick=addQ;
+$('shuffle').onclick=()=>{for(let i=S.questions.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.questions[i],S.questions[j]]=[S.questions[j],S.questions[i]]}update();toast('Questions shuffled')};
+$('printBtn').onclick=()=>{renderPaper();window.print()};
+
+$('bulkAdd').onclick=()=>{
+  const txt=$('bulk').value.replace(/\r/g,'');if(!txt.trim())return;
+  const blocks=txt.split(/\n(?=\s*\d+[\.\)]\s)/);let added=0;
+  blocks.forEach(b=>{
+    const ans=(b.match(/(?:answer|ans)\s*[:\-]\s*\(?([A-Fa-f1-6])\)?/i)||[])[1];
+    b=b.replace(/(?:answer|ans)\s*[:\-].*$/im,'');
+    const parts=b.split(/\s*(?:^|\s)\(?([A-Fa-f])[\)\.]\s+/m);
+    const stem=parts[0].replace(/^\s*\d+[\.\)]\s*/,'').trim();
+    const opts=[];for(let k=2;k<parts.length;k+=2)opts.push(parts[k].trim());
+    if(!stem||opts.length<2)return;
+    let a=0;if(ans){a=/\d/.test(ans)?+ans-1:ans.toUpperCase().charCodeAt(0)-65}
+    S.questions.push({q:stem,o:opts.slice(0,6),a:Math.min(Math.max(a,0),opts.length-1),m:1});added++;
+  });
+  if(added){$('bulk').value='';update();toast(added+' question'+(added>1?'s':'')+' added')}else toast('Could not read that format');
+};
+
+function downloadBlob(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+$('exportBtn').onclick=()=>downloadBlob(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),fileBase()+'.json');
+$('importFile').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.questions))throw 0;S={...structuredClone(DEFAULT),...d};refreshInputs();update();toast('Paper imported')}catch(err){toast('That file is not an exported paper')}};
+  r.readAsText(f);e.target.value='';
+};
+$('resetBtn').onclick=()=>{$('resetConfirm').hidden=false};
+$('resetNo').onclick=()=>{$('resetConfirm').hidden=true};
+$('resetYes').onclick=()=>{S=structuredClone(DEFAULT);refreshInputs();update();$('resetConfirm').hidden=true;toast('Reset to sample paper')};
+
+/* ---------- downloads ---------- */
+const loaded={};
+function loadLib(name){
+  if(loaded[name])return loaded[name];
+  return loaded[name]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIBS[name];s.onload=res;
+    s.onerror=()=>{delete loaded[name];rej(new Error('Could not load the '+name+' library. Check your internet connection.'))};document.head.appendChild(s)});
+}
+async function busy(btn,label,fn){
+  const old=btn.textContent;btn.disabled=true;btn.textContent=label;
+  try{await fn()}catch(e){console.error(e);toast(e.message||'Download failed',3500)}finally{btn.disabled=false;btn.textContent=old}
+}
+
+$('pdfBtn').onclick=()=>busy($('pdfBtn'),'Making PDF…',async()=>{
+  await Promise.all([loadLib('html2canvas'),loadLib('jspdf')]);
+  await document.fonts.ready;renderPaper();
+  const {jsPDF}=window.jspdf;const pdf=new jsPDF({unit:'mm',format:'a4',orientation:'portrait',compress:true});
+  document.body.classList.add('capturing');
+  const sheets=[...$('stage').querySelectorAll('.sheet')];
+  try{
+    for(let i=0;i<sheets.length;i++){
+      const c=await html2canvas(sheets[i],{scale:2.5,backgroundColor:'#ffffff',useCORS:true,logging:false});
+      if(i)pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297,undefined,'FAST');
+    }
+  }finally{document.body.classList.remove('capturing')}
+  pdf.setProperties({title:[S.subject,S.exam].filter(Boolean).join(' – '),author:S.teacher});
+  downloadBlob(pdf.output('blob'),fileBase()+'.pdf');toast('PDF downloaded');
+});
+
+function watermarkPNG(){
+  // Page-sized transparent PNG with the rotated watermark, placed behind the text on every Word page
+  const W=794,H=1123,k=2,cv=document.createElement('canvas');cv.width=W*k;cv.height=H*k;
+  const g=cv.getContext('2d');g.scale(k,k);g.translate(W/2,H/2);g.rotate(S.wmRot*Math.PI/180);
+  let px=S.wmSize*4/3;const t=wmTextOf();
+  g.font=`700 ${px}px "Source Serif 4", Georgia, serif`;
+  const maxW=Math.hypot(W,H)*0.85;const w=g.measureText(t).width;
+  if(w>maxW){px*=maxW/w;g.font=`700 ${px}px "Source Serif 4", Georgia, serif`}
+  g.fillStyle=`rgba(0,0,0,${S.wmOp/100})`;g.textAlign='center';g.textBaseline='middle';g.fillText(t,0,0);
+  const b64=cv.toDataURL('image/png').split(',')[1];const bin=atob(b64);const u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;
+}
+
+$('docxBtn').onclick=()=>busy($('docxBtn'),'Making Word…',async()=>{
+  await loadLib('docx');await document.fonts.ready;
+  const D=window.docx;
+  const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,BorderStyle,AlignmentType,Header,Footer,PageNumber,
+    ImageRun,HorizontalPositionRelativeFrom,VerticalPositionRelativeFrom,HorizontalPositionAlign,VerticalPositionAlign,
+    TextWrappingType,TabStopType,SectionType,VerticalAlign,PageBreak}=D;
+  const PT=parseFloat(S.qsize);const sz=pt=>Math.round(pt*2);
+  const MARGIN=850,PAGE_W=11906,CW=PAGE_W-2*MARGIN;
+  const none={style:BorderStyle.NONE,size:0,color:'FFFFFF'};
+  const noBorders={top:none,bottom:none,left:none,right:none,insideHorizontal:none,insideVertical:none};
+  const line={style:BorderStyle.SINGLE,size:6,color:'111111'};
+  const P=(text,o={})=>new Paragraph({alignment:o.align,spacing:{after:o.after??0,before:o.before??0},border:o.border,keepNext:o.keepNext,
+    pageBreakBefore:o.pageBreak,children:(Array.isArray(text)?text:[new TextRun({text,bold:o.bold,size:sz(o.size||PT),allCaps:o.caps,italics:o.italic})])});
+
+  function head(sub){
+    const out=[];
+    if(S.school)out.push(P(S.school,{align:AlignmentType.CENTER,bold:true,size:16,caps:true}));
+    if(S.exam)out.push(P(S.exam,{align:AlignmentType.CENTER,bold:true,size:13,before:40}));
+    out.push(P(S.subject+(sub?' — '+sub:''),{align:AlignmentType.CENTER,size:12,before:40,after:120,border:{bottom:{style:BorderStyle.SINGLE,size:12,color:'111111',space:6}}}));
+    const meta=[['Class',S.grade],['Teacher',S.teacher],['Time',S.duration],['Marks',String(totalMarks())],['Date',S.date],['Code',S.code]].filter(x=>x[1]);
+    const runs=[];meta.forEach(([k,v],i)=>{if(i)runs.push(new TextRun({text:'     ',size:sz(10.5)}));runs.push(new TextRun({text:k+': ',bold:true,size:sz(10.5)}),new TextRun({text:v,size:sz(10.5)}))});
+    out.push(P(runs,{before:60,after:120,border:{bottom:{...line,space:4}}}));
+    return out;
+  }
+  function student(){
+    if(!S.showStudent)return [];
+    const dot={type:TabStopType.LEFT,leader:'dot'};
+    return [new Paragraph({spacing:{before:200,after:60},
+      tabStops:[{...dot,position:Math.round(CW*0.6)},{type:TabStopType.LEFT,position:Math.round(CW*0.64)},{type:TabStopType.RIGHT,leader:'dot',position:CW}],
+      children:[new TextRun({text:'Name: \t\tIndex No: \t',size:sz(10.5)})]})];
+  }
+  const blocks1=[...head(),...student()];
+  const ins=instrList();
+  if(ins.length){
+    blocks1.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[CW],borders:{top:line,bottom:line,left:line,right:line,insideHorizontal:none,insideVertical:none},
+      rows:[new TableRow({children:[new TableCell({margins:{top:80,bottom:80,left:140,right:140},children:[
+        P('Instructions',{bold:true,size:10,after:40}),
+        ...ins.map(x=>new Paragraph({bullet:{level:0},children:[new TextRun({text:x,size:sz(10)})]}))]})]})]}));
+  }
+  if(S.section)blocks1.push(P(S.section,{bold:true,caps:true,before:200,after:120}));
+
+  const colW=S.pageCols==='2'?Math.round((CW-510)/2):CW;
+  const IND=450;
+  const qBlocks=[];
+  S.questions.forEach((q,i)=>{
+    const stemRuns=[new TextRun({text:(i+1)+'.',bold:true,size:sz(PT)}),new TextRun({text:'\t',size:sz(PT)})];
+    String(q.q).split('\n').forEach((ln,li)=>{if(li)stemRuns.push(new TextRun({break:1}));stemRuns.push(new TextRun({text:ln,size:sz(PT)}))});
+    if(S.showMarks)stemRuns.push(new TextRun({text:'\t['+q.m+']',size:sz(9),color:'444444'}));
+    qBlocks.push(new Paragraph({keepNext:true,keepLines:true,spacing:{before:i?140:0,after:40},indent:{left:IND,hanging:IND},
+      tabStops:[{type:TabStopType.LEFT,position:IND},...(S.showMarks?[{type:TabStopType.RIGHT,position:colW}]:[])],children:stemRuns}));
+    const n=colsFor(q);const w=Math.floor((colW-IND)/n);const rows=[];
+    for(let r=0;r<q.o.length;r+=n){
+      const cells=[];
+      for(let c=0;c<n;c++){
+        const j=r+c;const has=j<q.o.length;const key=S.markKey&&j===q.a;
+        cells.push(new TableCell({width:{size:w,type:WidthType.DXA},margins:{top:0,bottom:20,left:0,right:80},children:[new Paragraph({keepNext:r+n<q.o.length,
+          tabStops:[{type:TabStopType.LEFT,position:420}],children:has?[new TextRun({text:lab(j),bold:key,underline:key?{}:undefined,size:sz(PT)}),
+          new TextRun({text:'\t'+q.o[j],size:sz(PT)})]:[]})]}));
+      }
+      rows.push(new TableRow({cantSplit:true,children:cells}));
+    }
+    qBlocks.push(new Table({width:{size:w*n,type:WidthType.DXA},columnWidths:Array(n).fill(w),indent:{size:IND,type:WidthType.DXA},borders:noBorders,rows}));
+  });
+  qBlocks.push(P('*** END OF PAPER ***',{align:AlignmentType.CENTER,bold:true,size:10,before:240}));
+
+  const extra=[];
+  if(S.answerSheet){
+    extra.push(...head('Answer Sheet'),...student(),P('Shade the circle for the correct answer.',{size:10,before:120,after:120}));
+    const per=4,w=Math.floor(CW/per),rows=[];
+    for(let i=0;i<S.questions.length;i+=per){
+      rows.push(new TableRow({children:Array.from({length:per},(_,k)=>{const q=S.questions[i+k];
+        return new TableCell({width:{size:w,type:WidthType.DXA},margins:{top:40,bottom:40,left:0,right:0},children:[new Paragraph({children:q?[
+          new TextRun({text:(i+k+1)+'.  ',bold:true,size:sz(10.5)}),new TextRun({text:q.o.map((_,j)=>'('+bare(j)+')').join(' '),size:sz(10.5)})]:[]})]})})}));
+    }
+    extra.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:Array(per).fill(w),borders:noBorders,rows}));
+  }
+  if(S.answerKey){
+    if(extra.length)extra.push(new Paragraph({children:[new PageBreak()]}));
+    extra.push(...head('Answer Key'),P('For teacher use only. Total marks: '+totalMarks(),{size:10,before:120,after:120}));
+    const per=5,w=Math.floor(CW/(per*2)),rows=[];const cellB={style:BorderStyle.SINGLE,size:4,color:'333333'};
+    for(let i=0;i<S.questions.length;i+=per){
+      const cells=[];for(let k=0;k<per;k++){const q=S.questions[i+k];
+        cells.push(new TableCell({width:{size:w,type:WidthType.DXA},shading:{fill:'F2F2F2'},verticalAlign:VerticalAlign.CENTER,children:[P(q?String(i+k+1):'',{align:AlignmentType.CENTER,bold:true,size:10.5})]}));
+        cells.push(new TableCell({width:{size:w,type:WidthType.DXA},verticalAlign:VerticalAlign.CENTER,children:[P(q?bare(q.a):'',{align:AlignmentType.CENTER,size:10.5})]}));}
+      rows.push(new TableRow({children:cells}));
+    }
+    extra.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:Array(per*2).fill(w),borders:{top:cellB,bottom:cellB,left:cellB,right:cellB,insideHorizontal:cellB,insideVertical:cellB},rows}));
+  }
+
+  const headerChildren=S.wmOn&&wmTextOf().trim()?[new Paragraph({children:[new ImageRun({data:watermarkPNG(),transformation:{width:794,height:1123},
+    floating:{horizontalPosition:{relative:HorizontalPositionRelativeFrom.PAGE,align:HorizontalPositionAlign.CENTER},
+      verticalPosition:{relative:VerticalPositionRelativeFrom.PAGE,align:VerticalPositionAlign.CENTER},
+      behindDocument:true,allowOverlap:true,wrap:{type:TextWrappingType.NONE}}})]})]:[new Paragraph({children:[]})];
+  const fsz=sz(9);
+  const footer=new Footer({children:[new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:6,color:'999999',space:4}},
+    tabStops:[{type:TabStopType.CENTER,position:Math.round(CW/2)},{type:TabStopType.RIGHT,position:CW}],
+    children:[new TextRun({text:footLeft(),size:fsz,color:'333333'}),new TextRun({text:'\t'+(S.footR||''),size:fsz,color:'333333'}),
+      new TextRun({text:'\tPage ',size:fsz,color:'333333'}),new TextRun({children:[PageNumber.CURRENT],size:fsz,color:'333333'}),new TextRun({text:' of ',size:fsz,color:'333333'}),new TextRun({children:[PageNumber.TOTAL_PAGES],size:fsz,color:'333333'})]})]});
+  const page={size:{width:PAGE_W,height:16838},margin:{top:794,bottom:1000,left:MARGIN,right:MARGIN,header:300,footer:450}};
+  const common={headers:{default:new Header({children:headerChildren})},footers:{default:footer}};
+  const sections=[{properties:{page},...common,children:blocks1},
+    {properties:{type:SectionType.CONTINUOUS,page,column:S.pageCols==='2'?{count:2,space:510,separate:true}:{count:1}},...common,children:qBlocks}];
+  if(extra.length)sections.push({properties:{type:SectionType.NEXT_PAGE,page},...common,children:extra});
+
+  const font={ascii:'Times New Roman',hAnsi:'Times New Roman',cs:'Iskoola Pota',eastAsia:'Times New Roman'};
+  const doc=new Document({creator:S.teacher||'Teacher',title:[S.subject,S.exam].filter(Boolean).join(' – '),
+    styles:{default:{document:{run:{font,size:sz(PT)}}}},sections});
+  downloadBlob(await Packer.toBlob(doc),fileBase()+'.docx');toast('Word file downloaded');
+});
+
+bindSettings();renderList();
+(document.fonts?document.fonts.ready:Promise.resolve()).then(renderPaper);
+renderPaper();
+</script>
+</body>
+</html>
